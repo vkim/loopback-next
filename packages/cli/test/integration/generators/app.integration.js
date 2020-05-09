@@ -42,6 +42,7 @@ describe('app-generator specific files', () => {
     assertFilesToMatchSnapshot(
       {},
       'src/application.ts',
+      'src/sequence.ts',
       'index.js',
       'src/index.ts',
       'src/controllers/ping.controller.ts',
