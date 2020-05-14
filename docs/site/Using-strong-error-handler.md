@@ -16,7 +16,7 @@ In LoopBack 4, the request handling process starts with the app's
 five injected helper methods in the constructor. It is the gatekeeper of all
 requests to the app. Errors are handled by one of the Sequence actions,
 [`reject`](Sequence.md#handling-errors), which calls `strong-error-handler`
-package.
+package to send back an HTTP response describing the error.
 
 LB4 apps require 3.x versions of `strong-error-handler`.
 
@@ -39,28 +39,6 @@ details of any error objects to the client in the HTTP responses once the
 [Sequence - Handling errors](Sequence.md#handling-errors) section for usages and
 examples.
 
-The module also exports `writeErrorToResponse`, a non-middleware flavor of the
-error handler:
-
-```js
-import {Server} from 'http';
-import {writeErrorToResponse} from 'strong-error-handler';
-const errHandlingOptions = {debug: true, log: true};
-
-http
-  .createServer(function handleRequest(req, res) {
-    if (errShouldBeThrown) {
-      writeErrorToResponse(
-        new Error('something went wrong'),
-        req,
-        res,
-        errHandlingOptions,
-      );
-    }
-  })
-  .listen(3000);
-```
-
 In general, `strong-error-handler` must be the last middleware function to be
 registered.
 
@@ -73,11 +51,18 @@ Under the hood, LoopBack leverages [Express](https://expressjs.com) framework
 and its concept of middleware. To avoid common pitfalls, it is not possible to
 mount Express middleware directly on a LoopBack application.
 
-`strong-error-handler` can be bond to the app, which is the same as above. For
+`strong-error-handler` can be bound to the app, which is the same as above. For
 example:
 
 ```ts
+import {RestApplication, RestBindings} from '@loopback/rest';
+
+const app = new RestApplication();
+// .. other artifacts
+app.sequence(MySequencce);
 app.bind(RestBindings.ERROR_WRITER_OPTIONS).to({debug: true});
+
+app.start();
 ```
 
 ### Response format and content type
@@ -112,12 +97,17 @@ _There are plans to support other formats such as `text/plain`._
 
 ### Customizing log message
 
+As it is introduced in
+[Customizing Sequence Actions](Sequence.md#Customizing-sequence-actions), you
+can customize all those actions to meet your requirements. The following is an
+example of overriding the `reject` action:
+
 ```ts
 export class MySequence implements SequenceHandler {
   // 1. inject RestBindings.SequenceActions.LOG_ERROR for logging error
   // and RestBindings.ERROR_WRITER_OPTIONS for options
   constructor(
-    /*..*/
+    /* inject other actions*/
     @inject(RestBindings.SequenceActions.LOG_ERROR)
     protected logError: LogError,
     @inject(RestBindings.ERROR_WRITER_OPTIONS, {optional: true})
