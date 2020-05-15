@@ -17,7 +17,6 @@ import {
 } from '../..';
 
 describe('Context Explorer (acceptance)', function () {
-  // eslint-disable-next-line no-invalid-this
   this.timeout(5000);
   let app: RestApplication;
   let request: Client;
