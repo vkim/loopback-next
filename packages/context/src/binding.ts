@@ -263,16 +263,23 @@ export class Binding<T = BoundValue> extends EventEmitter {
   private _cache: WeakMap<Context, T>;
   private _getValue?: ValueFactory<T>;
 
-  private _valueConstructor?: Constructor<T>;
-  private _providerConstructor?: Constructor<Provider<T>>;
-  private _alias?: BindingAddress<T>;
+  /**
+   * The original source value received from `to`, `toClass`, `toDynamicValue`,
+   * `toProvider`, or `toAlias`.
+   */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private _source: any;
+
+  public get source() {
+    return this._source;
+  }
 
   /**
    * For bindings bound via `toClass()`, this property contains the constructor
    * function of the class
    */
   public get valueConstructor(): Constructor<T> | undefined {
-    return this._valueConstructor;
+    return this._type === BindingType.CLASS ? this._source : undefined;
   }
 
   /**
@@ -280,7 +287,7 @@ export class Binding<T = BoundValue> extends EventEmitter {
    * constructor function of the provider class
    */
   public get providerConstructor(): Constructor<Provider<T>> | undefined {
-    return this._providerConstructor;
+    return this._type === BindingType.PROVIDER ? this._source : undefined;
   }
 
   constructor(key: BindingAddress<T>, public isLocked: boolean = false) {
@@ -579,6 +586,7 @@ export class Binding<T = BoundValue> extends EventEmitter {
       debug('Bind %s to constant:', this.key, value);
     }
     this._type = BindingType.CONSTANT;
+    this._source = value;
     this._setValueGetter(() => value);
     return this;
   }
@@ -608,13 +616,15 @@ export class Binding<T = BoundValue> extends EventEmitter {
     if (debug.enabled) {
       debug('Bind %s to dynamic value:', this.key, factory);
     }
+    this._type = BindingType.DYNAMIC_VALUE;
+    this._source = factory;
+
     let factoryFn: ValueFactory<T>;
     if (isDynamicValueProviderClass(factory)) {
       factoryFn = toValueFactory(factory);
     } else {
       factoryFn = factory;
     }
-    this._type = BindingType.DYNAMIC_VALUE;
     this._setValueGetter(resolutionCtx => factoryFn(resolutionCtx));
     return this;
   }
@@ -641,7 +651,7 @@ export class Binding<T = BoundValue> extends EventEmitter {
       debug('Bind %s to provider %s', this.key, providerClass.name);
     }
     this._type = BindingType.PROVIDER;
-    this._providerConstructor = providerClass;
+    this._source = providerClass;
     this._setValueGetter(({context, options}) => {
       const providerOrPromise = instantiateClass<Provider<T>>(
         providerClass,
@@ -675,7 +685,7 @@ export class Binding<T = BoundValue> extends EventEmitter {
         options.session,
       );
     });
-    this._valueConstructor = ctor;
+    this._source = ctor;
     return this;
   }
 
@@ -690,7 +700,7 @@ export class Binding<T = BoundValue> extends EventEmitter {
       debug('Bind %s to alias %s', this.key, keyWithPath);
     }
     this._type = BindingType.ALIAS;
-    this._alias = keyWithPath;
+    this._source = keyWithPath;
     this._setValueGetter(({context, options}) => {
       return context.getValueOrPromise(keyWithPath, options);
     });
@@ -739,14 +749,14 @@ export class Binding<T = BoundValue> extends EventEmitter {
     if (this.type != null) {
       json.type = this.type;
     }
-    if (this._valueConstructor != null) {
-      json.valueConstructor = this._valueConstructor.name;
+    if (this.type === BindingType.CLASS) {
+      json.valueConstructor = this._source.name;
     }
-    if (this._providerConstructor != null) {
-      json.providerConstructor = this._providerConstructor.name;
+    if (this.type === BindingType.PROVIDER) {
+      json.providerConstructor = this._source.name;
     }
-    if (this._alias != null) {
-      json.alias = this._alias.toString();
+    if (this.type === BindingType.ALIAS) {
+      json.alias = this._source.toString();
     }
     return json;
   }
