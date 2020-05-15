@@ -5,9 +5,3 @@
 
 const examples = require('./dist');
 
-if (require.main === module) {
-  examples.main().catch(err => {
-    console.error('Fails to run examples.', err);
-    process.exit(1);
-  });
-}

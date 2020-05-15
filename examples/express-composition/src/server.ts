@@ -10,6 +10,8 @@ import http from 'http';
 import path from 'path';
 import {NoteApplication} from './application';
 
+export {ApplicationConfig};
+
 export class ExpressServer {
   public readonly app: express.Application;
   public readonly lbApp: NoteApplication;

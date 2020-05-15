@@ -7,12 +7,4 @@ const bench = require('./dist');
 
 module.exports = bench;
 
-if (require.main === module) {
-  bench.main().then(
-    success => process.exit(0),
-    err => {
-      console.error('Cannot run the benchmark.', err);
-      process.exit(1);
-    },
-  );
-}
+
