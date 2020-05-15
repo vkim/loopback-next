@@ -8,8 +8,10 @@ permalink: /doc/en/lb4/Using-strong-error-handler.html
 
 # strong-error-handler
 
-This package is an error handler for use in both development (debug) and
-production environments.
+As the part of the dependencies of
+[`@loopback/rest`](https://github.com/strongloop/loopback-next/tree/master/packages/rest),
+package `strong-error-handler` is an error handler for use in both development
+(debug) and production environments.
 
 In LoopBack 4, the request handling process starts with the app's
 [sequence](https://loopback.io/doc/en/lb4/Sequence.html), a simple class with
@@ -20,70 +22,29 @@ package to send back an HTTP response describing the error.
 
 LB4 apps require 3.x versions of `strong-error-handler`.
 
-## Installation
-
-```bash
-$ npm install --save strong-error-handler
-```
-
 ## Usage
 
-As mentioned above, errors are handled by the `reject` action of the app's
-[sequence](https://loopback.io/doc/en/lb4/Sequence.html). By default,
-implementation of `reject`, `strong-error-handler` omits details from error
-responses to prevent leaking sensitive information.
+In production mode (default), `reject` omits details from error responses to
+prevent leaking sensitive information.
 
-`strong-error-handler` also can return full error stack traces and internal
-details of any error objects to the client in the HTTP responses once the
-`debug` flag is set. Please check
-[Sequence - Handling errors](Sequence.md#handling-errors) section for usages and
-examples.
-
-In general, `strong-error-handler` must be the last middleware function to be
-registered.
-
-The above configuration will log errors to the server console, but not return
-stack traces in HTTP responses. For details on configuration options, see below.
-
-### Working with Express middleware
-
-Under the hood, LoopBack leverages [Express](https://expressjs.com) framework
-and its concept of middleware. To avoid common pitfalls, it is not possible to
-mount Express middleware directly on a LoopBack application.
-
-`strong-error-handler` can be bound to the app, which is the same as above. For
-example:
+In debug mode, `reject` also can return full error stack traces and internal
+details of any error objects to the client in the HTTP responses. Once the
+`debug` flag is set, `strong-error-handler` would handle such options.
 
 ```ts
-import {RestApplication, RestBindings} from '@loopback/rest';
-
-const app = new RestApplication();
-// .. other artifacts
-app.sequence(MySequencce);
 app.bind(RestBindings.ERROR_WRITER_OPTIONS).to({debug: true});
-
-app.start();
 ```
 
-### Response format and content type
+Please check [Sequence - Handling errors](Sequence.md#handling-errors) section
+for usages and examples of these two modes.
 
-The `strong-error-handler` package supports JSON, HTML and XML responses:
+In general, `reject` is executed in `try {} catch(err) {}` block.
+`strong-error-handler` is the last utility to be used.
 
-- When the object is a standard Error object, it returns the string provided by
-  the stack property in HTML/text responses.
-- When the object is a non-Error object, it returns the result of `util.inspect`
-  in HTML/text responses.
-- For JSON responses, the result is an object with all enumerable properties
-  from the object in the response.
-
-The content type of the response depends on the request's `Accepts` header.
-
-- For Accepts header `json` or `application/json`, the response content type is
-  JSON.
-- For Accepts header `html` or `text/html`, the response content type is HTML.
-- For Accepts header `xml` or `text/xml`, the response content type is XML.
-
-_There are plans to support other formats such as `text/plain`._
+The above configuration will log errors to the server console, but not return
+stack traces in HTTP responses. The behaviors of the error handler are also
+configurable by setting other options to `ERROR_WRITER_OPTIONS`. For details on
+available options, see below.
 
 ## Options
 
@@ -94,74 +55,6 @@ _There are plans to support other formats such as `text/plain`._
 | safeFields           | [String]                  | `[]`     | Specifies property names on errors that are allowed to be passed through in 4xx and 5xx responses. See [Safe error fields](#safe-error-fields) below.                                                                                                                                                                                                     |
 | defaultType          | String                    | `"json"` | Specify the default response content type to use when the client does not provide any Accepts header.                                                                                                                                                                                                                                                     |
 | negotiateContentType | Boolean                   | true     | Negotiate the response content type via Accepts request header. When disabled, strong-error-handler will always use the default content type when producing responses. Disabling content type negotiation is useful if you want to see JSON-formatted error responses in browsers, because browsers usually prefer HTML and XML over other content types. |
-
-### Customizing log message
-
-As it is introduced in
-[Customizing Sequence Actions](Sequence.md#Customizing-sequence-actions), you
-can customize all those actions to meet your requirements. The following is an
-example of overriding the `reject` action:
-
-```ts
-export class MySequence implements SequenceHandler {
-  // 1. inject RestBindings.SequenceActions.LOG_ERROR for logging error
-  // and RestBindings.ERROR_WRITER_OPTIONS for options
-  constructor(
-    /* inject other actions*/
-    @inject(RestBindings.SequenceActions.LOG_ERROR)
-    protected logError: LogError,
-    @inject(RestBindings.ERROR_WRITER_OPTIONS, {optional: true})
-    protected errorWriterOptions?: ErrorWriterOptions,
-  ) {}
-
-  async handle(context: RequestContext) {
-    try {
-      // ...
-    } catch (err) {
-      this.handleError(context, err as HttpErrors.HttpError);
-    }
-  }
-  /**
-   * Handle errors
-   * If the request url is `/my-route`, customize the error message.
-   */
-  handleError(context: RequestContext, err: HttpErrors.HttpError) {
-    // 2. customize error for particular endpoint
-    if (context.request.url === '/my-route') {
-      // if this is a validation error
-      if (err.statusCode === 422) {
-        const customizedMessage = 'My customized validation error message';
-
-        let customizedProps = {};
-        if (this.errorWriterOptions?.debug) {
-          customizedProps = {stack: err.stack};
-        }
-
-        // 3. Create a new error with customized properties
-        // you can change the status code here too
-        const errorData = {
-          statusCode: 422,
-          message: customizedMessage,
-          resolution: 'Contact your admin for troubleshooting.',
-          code: 'VALIDATION_FAILED',
-          ...customizedProps,
-        };
-
-        context.response.status(422).send(errorData);
-
-        // 4. log the error using RestBindings.SequenceActions.LOG_ERROR
-        this.logError(err, err.statusCode, context.request);
-
-        // The error was handled
-        return;
-      }
-    }
-
-    // Otherwise fall back to the default error handler
-    this.reject(context, err);
-  }
-}
-```
 
 ### Safe error fields
 
@@ -186,6 +79,26 @@ produce the following response:
   }
 }
 ```
+
+## Response format and content type
+
+The `strong-error-handler` package supports JSON, HTML and XML responses:
+
+- When the object is a standard Error object, it returns the string provided by
+  the stack property in HTML/text responses.
+- When the object is a non-Error object, it returns the result of `util.inspect`
+  in HTML/text responses.
+- For JSON responses, the result is an object with all enumerable properties
+  from the object in the response.
+
+The content type of the response depends on the request's `Accepts` header.
+
+- For Accepts header `json` or `application/json`, the response content type is
+  JSON.
+- For Accepts header `html` or `text/html`, the response content type is HTML.
+- For Accepts header `xml` or `text/xml`, the response content type is XML.
+
+_There are plans to support other formats such as `text/plain`._
 
 ## Migration from LoopBack 3 error handler
 
