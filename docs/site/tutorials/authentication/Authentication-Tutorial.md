@@ -83,6 +83,8 @@ In `src/application.ts`, bind the authentication components to your application
 class. Since we will be testing the JWT authentication using API Explorer, we
 will add the `addSecuritySpec()` function.
 
+{% include code-caption.html content="src/application.ts" %}
+
 ```ts
 // ---------- ADD IMPORTS -------------
 import {AuthenticationComponent} from '@loopback/authentication';
@@ -214,6 +216,8 @@ For UserService which verifies the credentials, we are going to use the default
 implementation in the `@loopback/authentication-jwt` extension. Therefore, the
 constructor injects the `MyUserService` from this extension.
 
+{% include code-caption.html content="/src/controllers/user.controller.ts" %}
+
 ```ts
 constructor(
     @inject(TokenServiceBindings.TOKEN_SERVICE)
@@ -231,19 +235,22 @@ user.controller.ts.
 
 ## Step 4: Protect the Todo APIs
 
-Finally, we need to protect other endpoints that we have, i.e. the /todos APIs.
-Go to `src/controllers/todo.controller.ts`. Simple add one line before the
-`TodoController` class. This will protect all the APIs in this controller.
+Finally, we need to protect other endpoints that we have, i.e. the `/todos`
+APIs. Go to `src/controllers/todo.controller.ts`. Simple add
+`@authenticate('jwt')` before the `TodoController` class. This will protect all
+the APIs in this controller.
+
+{% include code-caption.html content="/src/controllers/user.controller.ts" %}
 
 ```ts
-@authenticate('jwt') // <---- ADD THIS LINE
+@authenticate('jwt') // <---- Apply the @authenticate decorator at the class level
 export class TodoController {
   //...
 }
 ```
 
 If there are particular API that you want to make it available to everyone
-without authentication, you can put @authenticate.skip() before that function.
+without authentication, you can add `@authenticate.skip()` before that function.
 See https://loopback.io/doc/en/lb4/Decorators_authenticate.html for more
 details.
 
@@ -292,3 +299,13 @@ http://localhost:3000/explorer. You’ll see the 3 new endpoints under
 
 3. Get all todos using `GET /todos` API You should be able to call this API
    successfully.
+
+## Conclusion
+
+Congratulations! You have successfully added the JWT authentication to the
+LoopBack application! We did the following:
+
+- bind the JWT Component in the Application
+- add Authenticate Action in the sequence
+- create the UserController for login and signup functions
+- protect the APIs by adding the `@authenticate` decorator
